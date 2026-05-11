@@ -1,0 +1,8 @@
+{
+  "name": "VolleyPro AI",
+  "description": "Professional volleyball biomechanics tracker powered by high-speed vision AI for spike and serve analysis.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": []
+}
