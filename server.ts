@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-import { handleVolleyProcess } from "./api/process.js";
+import handleVolleyProcess from "./api/process.js";
 
 async function startServer() {
   const app = express();

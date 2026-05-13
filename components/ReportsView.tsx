@@ -18,6 +18,22 @@ import {
 import { motion } from 'motion/react';
 
 export const ReportsView: React.FC = () => {
+  const copyReport = () => {
+    const reportData = `
+Session Summary: Elite Power Serve Alpha
+Recorded: Oct 24, 2023
+Biomechanics Score: 85
+Accuracy: 94%
+Max Velocity: 72mph
+Strengths: Great Jump, Power Flow
+Improvements: Swing Speed, Safe Landing
+    `.trim();
+    
+    navigator.clipboard.writeText(reportData)
+      .then(() => alert('Report copied to clipboard!'))
+      .catch(err => console.error('Failed to copy: ', err));
+  };
+
   return (
     <div className="w-full h-full overflow-y-auto p-12 bg-transparent custom-scrollbar">
       <div className="max-w-7xl mx-auto space-y-12">
@@ -29,10 +45,18 @@ export const ReportsView: React.FC = () => {
             <h2 className="font-headline text-4xl font-bold text-on-background mt-1 italic tracking-tight">Elite Power Serve Alpha</h2>
             <p className="text-sm text-on-surface-variant mt-1">Recorded: Oct 24, 2023 • Pro Training Grounds</p>
           </div>
-          <button className="bg-primary text-white px-8 py-3 rounded-2xl font-display font-bold text-[10px] tracking-widest flex items-center gap-2 hover:scale-105 transition-transform active:scale-95 shadow-lg shadow-primary/20">
-            <Download className="w-4 h-4" />
-            EXPORT FULL DATA
-          </button>
+          <div className="flex gap-3">
+            <button 
+              onClick={copyReport}
+              className="px-6 py-3 border border-primary/30 text-primary rounded-2xl font-display font-bold text-[10px] tracking-widest hover:bg-primary/5 transition-colors"
+            >
+              COPY SUMMARY
+            </button>
+            <button className="bg-primary text-white px-8 py-3 rounded-2xl font-display font-bold text-[10px] tracking-widest flex items-center gap-2 hover:scale-105 transition-transform active:scale-95 shadow-lg shadow-primary/20">
+              <Download className="w-4 h-4" />
+              EXPORT FULL DATA
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8">

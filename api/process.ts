@@ -5,7 +5,7 @@ import { Request, Response } from "express";
  * Grok-1.5 Vision API Gateway (Remix)
  * Routes incoming frame data to the Biomechanics Engine.
  */
-export const handleVolleyProcess = async (req: Request, res: Response) => {
+export default async (req: Request, res: Response) => {
   const { image, mode, timestamp } = req.body;
 
   if (!image) {

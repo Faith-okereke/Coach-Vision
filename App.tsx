@@ -6,8 +6,6 @@
 import React, { useState } from 'react';
 import ModeController from './components/ModeController';
 import VolleyProCore from './components/VolleyProCore';
-import { SideNavBar } from './components/SideNavBar';
-import { MobileBottomNav } from './components/MobileBottomNav';
 import { DashboardView } from './components/DashboardView';
 import { ReportsView } from './components/ReportsView';
 import { CaptureView } from './components/CaptureView';
@@ -44,20 +42,12 @@ const App: React.FC = () => {
       </div>
 
       <div className="relative z-10 flex w-full h-full">
-        {/* Desktop Side Navigation */}
-        <div className="hidden lg:block h-full">
-          <SideNavBar activeView={activeView} onViewChange={setActiveView} />
-        </div>
-
         <main className="flex-1 flex flex-col relative min-h-0 overflow-hidden">
           <ModeController onModeChange={(isMobile, allowedModes) => setDeviceConfig({ isMobile, allowedModes })}>
             <div className="flex-1 overflow-hidden relative">
               {renderView()}
             </div>
           </ModeController>
-          
-          {/* Mobile Navigation */}
-          <MobileBottomNav activeView={activeView} onViewChange={setActiveView} />
         </main>
       </div>
     </div>
