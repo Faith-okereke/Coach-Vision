@@ -396,6 +396,32 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
     }
   };
 
+  const captureScreenshot = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current) return;
+    
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    
+    // Create separate canvas for screenshot to combine video and overlay
+    const screenshotCanvas = document.createElement('canvas');
+    screenshotCanvas.width = video.videoWidth || 1280;
+    screenshotCanvas.height = video.videoHeight || 720;
+    const ctx = screenshotCanvas.getContext('2d');
+    
+    if (ctx) {
+      // 1. Draw video frame
+      ctx.drawImage(video, 0, 0, screenshotCanvas.width, screenshotCanvas.height);
+      // 2. Draw our overlay landmarks/ball/etc
+      ctx.drawImage(canvas, 0, 0, screenshotCanvas.width, screenshotCanvas.height);
+      
+      // 3. Trigger download
+      const link = document.createElement('a');
+      link.download = `VolleyVision_Capture_${new Date().getTime()}.jpg`;
+      link.href = screenshotCanvas.toDataURL('image/jpeg', 0.9);
+      link.click();
+    }
+  }, []);
+
   useEffect(() => {
     return () => {
       if (videoRef.current?.srcObject) {
@@ -472,8 +498,8 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
         </button>
       </div>
 
-      <main className="flex-1 overflow-y-auto p-12 bg-transparent custom-scrollbar">
-        <div className="max-w-7xl mx-auto space-y-12">
+      <main className="flex-1 overflow-y-auto lg:p-12 p-5 bg-transparent custom-scrollbar">
+        <div className="lg:max-w-7xl max-w-full mx-auto space-y-12">
           
           <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
             
@@ -482,10 +508,10 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
               <div 
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={onDrop}
-                className={`aspect-video glass-panel rounded-3xl border-2 border-dashed border-primary/40 ${isUploaded ? 'border-primary/40' : 'border-black/10'} flex flex-col items-center justify-center relative group overflow-hidden transition-all`}
+                className={`w-full min-h-[500px] lg:min-h-0 lg:aspect-video glass-panel rounded-3xl border-2 border-dashed border-primary/40 ${isUploaded ? 'border-primary/40' : 'border-black/10'} flex flex-col items-center justify-center relative group overflow-hidden transition-all`}
               >
                 {isUploaded && videoUrl ? (
-                  <div className="absolute inset-0 bg-black cursor-crosshair">
+                  <div className="absolute inset-0 bg-black ">
                     {/* Identification Overlay */}
                     <AnimatePresence>
                       {workflowStatus === 'IDENTIFYING' && (
@@ -500,50 +526,6 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
                             <span className="text-[10px] font-headline font-black text-primary uppercase tracking-[0.3em]">Finding Players</span>
                             <p className="text-white/40 text-[9px] font-display font-bold uppercase italic tracking-widest mt-2">Looking for athletes in the video...</p>
                           </div>
-                        </motion.div>
-                      )}
-
-                      {workflowStatus === 'SELECTING' && (
-                        <motion.div 
-                          initial={{ opacity: 0, scale: 0.95 }} 
-                          animate={{ opacity: 1, scale: 1 }} 
-                          exit={{ opacity: 0 }}
-                          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] h-[90vh] z-50 bg-white/98 backdrop-blur-2xl flex flex-col items-center p-12 space-y-10 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-black/5"
-                        >
-                          <div className="text-center space-y-3 shrink-0">
-                             <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-2">
-                                <Target className="w-6 h-6 text-primary" />
-                             </div>
-                             <h4 className="text-3xl font-headline font-black text-primary italic uppercase tracking-tight">Target Identification</h4>
-                             <p className="text-black/40 text-[10px] font-display font-bold uppercase tracking-widest">Select the athlete for biomechanical tracking</p>
-                          </div>
-                          
-                          <div className="flex-1 w-full max-w-2xl overflow-y-auto pr-2 custom-scrollbar bg-black/[0.03] rounded-[2rem] p-8 shadow-inner border border-black/5">
-                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {peopleOptions.map((person, idx) => (
-                                  <button
-                                    key={idx}
-                                    onClick={() => handlePersonSelect(person)}
-                                    className="glass-panel p-6 rounded-2xl border border-black/5 hover:border-primary/40 transition-all text-left flex items-start gap-4 group bg-white shadow-sm hover:shadow-md"
-                                  >
-                                    <div className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                                       <User className="w-5 h-5 text-black/40 group-hover:text-primary" />
-                                    </div>
-                                    <div className="flex-1">
-                                       <span className="text-[9px] font-bold text-black/20 uppercase tracking-widest block mb-1">Candidate {idx + 1}</span>
-                                       <p className="text-sm font-display font-medium text-black/80 group-hover:text-black transition-colors">{person}</p>
-                                    </div>
-                                  </button>
-                                ))}
-                             </div>
-                          </div>
-
-                          <button 
-                             onClick={() => setIsUploaded(false)}
-                             className="text-black/30 text-[10px] font-bold uppercase tracking-[0.4em] hover:text-primary transition-colors shrink-0 pt-4"
-                          >
-                             ← Re-Ingest Stream
-                          </button>
                         </motion.div>
                       )}
 
@@ -567,9 +549,12 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
 
                     <video 
                       ref={videoRef}
+                      key={videoUrl}
                       src={videoUrl}
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-contain relative z-0"
                       playsInline
+                      muted
+                      crossOrigin="anonymous"
                       onPlay={() => setIsPaused(false)}
                       onPause={() => setIsPaused(true)}
                       onLoadedMetadata={() => {
@@ -586,16 +571,25 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
                       className="absolute inset-0 w-full h-full pointer-events-none z-10" 
                     />
                     
-                    {/* Remove Video Button */}
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); handleReset(); }}
-                      className="absolute top-6 right-6 z-40 p-2.5 bg-black/40 hover:bg-primary border border-white/10 rounded-xl backdrop-blur-md transition-all group/trash"
-                      title="Remove video"
-                    >
-                      <Trash2 className="w-5 h-5 text-white/60 group-hover/trash:text-white transition-colors" />
-                    </button>
+                    {/* Removal & Capture Controls */}
+                    <div className="absolute top-6 right-6 z-40 flex gap-3">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); captureScreenshot(); }}
+                        className="p-2.5 bg-black/40 hover:bg-primary border border-white/10 rounded-xl backdrop-blur-md transition-all group/cam"
+                        title="Capture Screenshot"
+                      >
+                        <Camera className="w-5 h-5 text-white/60 group-hover/cam:text-white transition-colors" />
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleReset(); }}
+                        className="p-2.5 bg-black/40 hover:bg-red-500 border border-white/10 rounded-xl backdrop-blur-md transition-all group/trash"
+                        title="Remove video"
+                      >
+                        <Trash2 className="w-5 h-5 text-white/60 group-hover/trash:text-white transition-colors" />
+                      </button>
+                    </div>
                     
-                    {!isAnalyzing && workflowStatus === 'COMPLETED' && (
+                    {!isAnalyzing && (
                       <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-30">
                         <button 
                           onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}
@@ -652,11 +646,11 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
                     )}
                   </div>
                 ) : (
-                  <>
+                  <div className="flex flex-col items-center justify-center text-center p-8 w-full">
                     <div className="w-20 h-20 bg-black/5 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                       <Video className="w-8 h-8 text-on-surface-variant" />
                     </div>
-                    <h2 className="text-on-background font-headline text-3xl font-bold italic mb-2 tracking-tight">INGEST VISUAL STREAM</h2>
+                    <h2 className="text-on-background font-headline lg:text-3xl text-xl font-bold italic mb-2 tracking-tight">Upload your Video</h2>
                     <p className="text-on-surface-variant text-sm mb-10 font-medium">Drag and drop your practice video or click to upload</p>
                     
                     <input 
@@ -672,7 +666,7 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
                     >
                       SELECT SOURCE FILE
                     </label>
-                  </>
+                  </div>
                 )}
 
                 {/* Progress HUD Overlay */}
@@ -953,6 +947,65 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
          />
       </div>
       </div>
+      {/* Global Selection Modal */}
+      <AnimatePresence>
+        {workflowStatus === 'SELECTING' && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-12">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsUploaded(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }} 
+              animate={{ opacity: 1, scale: 1, y: 0 }} 
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-3xl max-h-[85vh] bg-white rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.6)] border border-white/10 flex flex-col overflow-hidden"
+            >
+              <div className="p-8 text-center space-y-2 shrink-0 border-b border-black/5 bg-black/[0.01]">
+                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-1">
+                  <Target className="w-6 h-6 text-primary" />
+                </div>
+                <h4 className="text-2xl font-headline font-black text-primary italic uppercase tracking-tight">Focus Protocol</h4>
+                <p className="text-black/40 text-[9px] font-display font-bold uppercase tracking-[0.25em]">Select the athlete for precision biomechanical tracking</p>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {peopleOptions.map((person, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handlePersonSelect(person)}
+                      className="cursor-pointer glass-panel p-5 rounded-2xl border border-black/5 hover:border-primary/40 transition-all text-left flex items-start gap-4 group bg-white shadow-sm hover:shadow-lg hover:-translate-y-1"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center group-hover:bg-primary/20 transition-colors shrink-0">
+                        <User className="w-4 h-4 text-black/40 group-hover:text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-[8px] font-bold text-black/20 uppercase tracking-[0.2em] block mb-1">ID {idx + 1}</span>
+                        <p className="text-sm font-headline font-bold text-black/80 group-hover:text-black transition-colors italic uppercase tracking-tight line-clamp-1">{person}</p>
+                        <p className="text-[8px] text-black/40 mt-1 font-display uppercase tracking-widest">Active Movement</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-black/5 bg-black/[0.01] flex justify-center">
+                <button 
+                  onClick={() => setIsUploaded(false)}
+                  className="text-black/30 text-[9px] font-bold uppercase tracking-[0.4em] hover:text-primary transition-colors py-2"
+                >
+                  ← Abort Ingestion
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
