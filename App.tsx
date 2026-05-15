@@ -5,8 +5,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
+import { motion, AnimatePresence } from 'motion/react';
 import ModeController from './components/ModeController';
 import VolleyProCore from './components/VolleyProCore';
+import LogoutModal from './components/LogoutModal';
 import { DashboardView } from './components/DashboardView';
 import { ReportsView } from './components/ReportsView';
 import { CaptureView } from './components/CaptureView';
@@ -26,7 +28,7 @@ const App: React.FC = () => {
   const [persistedWorkflow, setPersistedWorkflow] = useState<any>({ status: 'IDLE', selectedPerson: null, peopleOptions: [], allEvents: [] });
   
   const [session, setSession] = useState<any>(null);
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   useEffect(() => {
     if (!supabase) return;
@@ -47,6 +49,7 @@ const App: React.FC = () => {
   const handleLogout = async () => {
     if (!supabase) return;
     await supabase.auth.signOut();
+    setShowLogoutModal(false);
   };
 
   const renderView = () => {
@@ -73,6 +76,7 @@ const App: React.FC = () => {
           <VolleyProCore 
             isMobile={deviceConfig.isMobile} 
             allowedModes={deviceConfig.allowedModes} 
+            user={session?.user}
             onAnalysisComplete={(data) => {
               setAnalysisResults(data);
               setActiveView('FEEDBACK');
@@ -134,11 +138,15 @@ const App: React.FC = () => {
               <div className="flex flex-col gap-6">
                 {session ? (
                   <button 
-                    onClick={handleLogout}
+                    onClick={() => setShowLogoutModal(true)}
                     className="w-10 h-10 rounded-full border-2 border-primary/40 overflow-hidden bg-white/5 flex items-center justify-center hover:scale-110 transition-transform group cursor-pointer"
                     title={`Logout ${session.user.email}`}
                   >
-                    <LogOut className="w-5 h-5 text-slate-400 group-hover:text-primary" />
+                    {session.user.user_metadata?.avatar_url ? (
+                      <img src={session.user.user_metadata.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                      <LogOut className="w-5 h-5 text-slate-400 group-hover:text-primary" />
+                    )}
                   </button>
                 ) : (
                   <button 
@@ -184,13 +192,17 @@ const App: React.FC = () => {
                 <span className="text-[9px] font-bold uppercase tracking-widest">History</span>
               </button>
               <button 
-                onClick={() => session ? handleLogout() : setActiveView('AUTH')}
+                onClick={() => session ? setShowLogoutModal(true) : setActiveView('AUTH')}
                 className={`flex flex-col items-center gap-1.5 transition-all w-16 cursor-pointer ${activeView === 'AUTH' ? 'text-primary' : 'text-slate-400'}`}
               >
                 <div className={`p-2 rounded-xl transition-all ${activeView === 'AUTH' ? 'bg-primary/10' : ''}`}>
-                  <User className="w-5 h-5" />
+                  {session?.user?.user_metadata?.avatar_url ? (
+                    <img src={session.user.user_metadata.avatar_url} alt="Profile" className="w-6 h-6 rounded-lg object-cover" />
+                  ) : (
+                    <User className="w-5 h-5" />
+                  )}
                 </div>
-                <span className="text-[9px] font-bold uppercase tracking-widest">{session ? 'Exit' : 'Self'}</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest">{session ? 'User' : 'Self'}</span>
               </button>
             </div>
           </>
@@ -204,6 +216,12 @@ const App: React.FC = () => {
           </ModeController>
         </main>
       </div>
+
+      <LogoutModal 
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={handleLogout}
+      />
     </div>
   );
 };
