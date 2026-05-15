@@ -48,11 +48,11 @@ Improvements: Swing Speed, Safe Landing
           <div className="flex gap-3">
             <button 
               onClick={copyReport}
-              className="px-6 py-3 border border-primary/30 text-primary rounded-2xl font-display font-bold text-[10px] tracking-widest hover:bg-primary/5 transition-colors"
+              className="px-6 py-3 border border-primary/30 text-primary rounded-2xl font-display font-bold text-[10px] tracking-widest hover:bg-primary/5 transition-colors cursor-pointer"
             >
               COPY SUMMARY
             </button>
-            <button className="bg-primary text-white px-8 py-3 rounded-2xl font-display font-bold text-[10px] tracking-widest flex items-center gap-2 hover:scale-105 transition-transform active:scale-95 shadow-lg shadow-primary/20">
+            <button className="bg-primary text-white px-8 py-3 rounded-2xl font-display font-bold text-[10px] tracking-widest flex items-center gap-2 hover:scale-105 transition-transform active:scale-95 shadow-lg shadow-primary/20 cursor-pointer">
               <Download className="w-4 h-4" />
               EXPORT FULL DATA
             </button>

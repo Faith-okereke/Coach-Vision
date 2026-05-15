@@ -4,6 +4,33 @@ import { GoogleGenAI, Type } from "@google/genai";
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 const MODEL_NAME = "gemini-3-flash-preview";
 
+/**
+ * Helper to call Gemini with exponential backoff retry for 503 errors
+ */
+async function callGeminiWithRetry(fn: () => Promise<any>, maxRetries = 3): Promise<any> {
+  let lastError: any;
+  for (let i = 0; i <= maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      const isUnavailable = error?.message?.includes('503') || 
+                          error?.status === 503 || 
+                          error?.message?.toLowerCase().includes('unavailable') ||
+                          error?.message?.toLowerCase().includes('high demand');
+      
+      if (isUnavailable && i < maxRetries) {
+        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+        console.warn(`Gemini 503 detected. Retrying in ${Math.round(delay)}ms... (Attempt ${i + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError;
+}
+
 export interface JointAngles {
   shoulder: number;
   elbow: number;
@@ -64,7 +91,7 @@ export async function processVolleyFrame(
   `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await callGeminiWithRetry(() => ai.models.generateContent({
       model: MODEL_NAME,
       contents: [
         { text: "Analyze the biomechanics of this impact frame." },
@@ -108,7 +135,7 @@ export async function processVolleyFrame(
           }
         }
       }
-    });
+    }));
 
     return JSON.parse(response.text);
   } catch (error) {
@@ -131,7 +158,7 @@ export async function generateSessionReport(sessionData: any): Promise<SessionRe
   `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await callGeminiWithRetry(() => ai.models.generateContent({
       model: MODEL_NAME,
       contents: [{ text: `Session Data: ${JSON.stringify(sessionData)}` }],
       config: {
@@ -177,7 +204,7 @@ export async function generateSessionReport(sessionData: any): Promise<SessionRe
           }
         }
       }
-    });
+    }));
 
     return JSON.parse(response.text);
   } catch (error) {
@@ -205,7 +232,7 @@ export async function identifyPeopleInVideo(images: string[]): Promise<string[]>
       }
     }));
 
-    const response = await ai.models.generateContent({
+    const response = await callGeminiWithRetry(() => ai.models.generateContent({
       model: MODEL_NAME,
       contents: [
         { text: "Identify the unique individuals in these frames." },
@@ -225,7 +252,7 @@ export async function identifyPeopleInVideo(images: string[]): Promise<string[]>
           }
         }
       }
-    });
+    }));
 
     const result = JSON.parse(response.text);
     return result.people;
@@ -258,7 +285,7 @@ export async function analyzeFullVideo(images: string[], targetDescription: stri
       }
     }));
 
-    const response = await ai.models.generateContent({
+    const response = await callGeminiWithRetry(() => ai.models.generateContent({
       model: MODEL_NAME,
       contents: [
         { text: `Analyze the performance of: ${targetDescription}` },
@@ -306,7 +333,7 @@ export async function analyzeFullVideo(images: string[], targetDescription: stri
           }
         }
       }
-    });
+    }));
 
     const result = JSON.parse(response.text);
     return result.events;

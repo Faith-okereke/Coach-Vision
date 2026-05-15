@@ -51,38 +51,79 @@ interface VolleyAnalysis {
 interface VolleyProCoreProps {
   isMobile: boolean;
   allowedModes: ('LIVE' | 'UPLOAD')[];
+  onAnalysisComplete?: (results: VolleyAnalysis) => void;
+  persistedAnalysis?: VolleyAnalysis | null;
+  onNavigateFeedback?: () => void;
+  persistedVideo?: { url: string | null; base64: string | null };
+  onVideoChange?: (video: { url: string | null; base64: string | null }) => void;
+  persistedWorkflow?: { 
+    status: 'IDLE' | 'IDENTIFYING' | 'SELECTING' | 'ANALYZING' | 'COMPLETED'; 
+    selectedPerson: string | null; 
+    peopleOptions: string[]; 
+    allEvents: VolleyAnalysis[];
+  };
+  onWorkflowChange?: (workflow: any) => void;
 }
 
-const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes }) => {
+const VolleyProCore: React.FC<VolleyProCoreProps> = ({ 
+  isMobile, 
+  allowedModes, 
+  onAnalysisComplete,
+  persistedAnalysis,
+  onNavigateFeedback,
+  persistedVideo,
+  onVideoChange,
+  persistedWorkflow,
+  onWorkflowChange
+}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   const [activeMode, setActiveMode] = useState<'LIVE' | 'UPLOAD'>(isMobile ? 'LIVE' : 'UPLOAD');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysis, setAnalysis] = useState<VolleyAnalysis | null>(null);
+  const [analysis, setAnalysis] = useState<VolleyAnalysis | null>(persistedAnalysis || null);
   const [cameraStatus, setCameraStatus] = useState<'IDLE' | 'PENDING' | 'READY' | 'ERROR'>('IDLE');
   const [tension, setTension] = useState(0); // Slingshot tension simulation
   
   // Real-time loop refs
   const lastCaptureTime = useRef<number>(0);
-
+ 
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
-  const [isUploaded, setIsUploaded] = useState(false);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [videoBase64, setVideoBase64] = useState<string | null>(null);
-
+  const [isUploaded, setIsUploaded] = useState(!!persistedVideo?.url);
+  const [videoUrl, setVideoUrl] = useState<string | null>(persistedVideo?.url || null);
+  const [videoBase64, setVideoBase64] = useState<string | null>(persistedVideo?.base64 || null);
+ 
   // New Workflow State
-  const [workflowStatus, setWorkflowStatus] = useState<'IDLE' | 'IDENTIFYING' | 'SELECTING' | 'ANALYZING' | 'COMPLETED'>('IDLE');
-  const [peopleOptions, setPeopleOptions] = useState<string[]>([]);
-  const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
-  const [allEvents, setAllEvents] = useState<VolleyAnalysis[]>([]);
+  const [workflowStatus, setWorkflowStatus] = useState<'IDLE' | 'IDENTIFYING' | 'SELECTING' | 'ANALYZING' | 'COMPLETED'>(persistedWorkflow?.status || 'IDLE');
+  const [peopleOptions, setPeopleOptions] = useState<string[]>(persistedWorkflow?.peopleOptions || []);
+  const [selectedPerson, setSelectedPerson] = useState<string | null>(persistedWorkflow?.selectedPerson || null);
+  const [allEvents, setAllEvents] = useState<VolleyAnalysis[]>(persistedWorkflow?.allEvents || []);
   const [activeEventIndex, setActiveEventIndex] = useState(0);
-
+ 
   const [poseResults, setPoseResults] = useState<Results | null>(null);
-  const [targetLocked, setTargetLocked] = useState(false);
+  const [targetLocked, setTargetLocked] = useState(workflowStatus === 'COMPLETED');
   const targetLockedRef = useRef(false);
   const [isPaused, setIsPaused] = useState(true);
+  const [showSkeletons, setShowSkeletons] = useState(true);
+
+  // Sync back to App.tsx
+  useEffect(() => {
+    if (onVideoChange) {
+      onVideoChange({ url: videoUrl, base64: videoBase64 });
+    }
+  }, [videoUrl, videoBase64, onVideoChange]);
+
+  useEffect(() => {
+    if (onWorkflowChange) {
+      onWorkflowChange({
+        status: workflowStatus,
+        selectedPerson,
+        peopleOptions,
+        allEvents
+      });
+    }
+  }, [workflowStatus, selectedPerson, peopleOptions, allEvents, onWorkflowChange]);
 
   // Synchronize ref with state for use in callbacks
   useEffect(() => {
@@ -146,7 +187,7 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
         if (canvasCtx) {
           canvasCtx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
           
-          if (results.poseLandmarks && targetLockedRef.current) {
+          if (results.poseLandmarks && targetLockedRef.current && showSkeletons) {
             // Draw the landmarks and connectors
             drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {
               color: '#f55a3c',
@@ -267,6 +308,10 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
   }, [videoUrl]);
 
   const handleFileUpload = useCallback(async (file: File) => {
+    if (!file.type.startsWith('video/')) {
+      alert("Invalid file format. Please upload a video file (MP4, MOV, WebM, etc.).");
+      return;
+    }
     setIsUploading(true);
     setUploadProgress(0);
     setIsUploaded(false);
@@ -328,6 +373,7 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
       if (events.length > 0) {
         setAnalysis(events[0]);
         setActiveEventIndex(0);
+        if (onAnalysisComplete) onAnalysisComplete(events[0]);
       }
       setWorkflowStatus('COMPLETED');
       setTargetLocked(true); // Visually "lock" the target now
@@ -342,8 +388,12 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('video/')) {
-      handleFileUpload(file);
+    if (file) {
+      if (file.type.startsWith('video/')) {
+        handleFileUpload(file);
+      } else {
+        alert("Strict Security: Only video files are permitted for biomechanical analysis.");
+      }
     }
   }, [handleFileUpload]);
 
@@ -388,6 +438,7 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
       try {
         const res = await processVolleyFrame(frame, 'UPLOAD');
         setAnalysis(res);
+        if (onAnalysisComplete) onAnalysisComplete(res);
       } catch (e) {
         console.error("Impact analysis error:", e);
       } finally {
@@ -467,7 +518,7 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
     <div className="w-full h-full flex flex-col bg-transparent text-on-background font-sans selection:bg-primary/30 min-h-screen overflow-hidden relative">
       <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
         {/* Dynamic Header */}
-        <header className="flex justify-between items-center w-full px-12 h-20 bg-background/40 backdrop-blur-md border-b border-black/5 z-40">
+        <header className="flex justify-between items-center w-full lg:px-12 px-6 h-20 bg-background/40 backdrop-blur-md border-b border-black/5 z-40">
         <div className="flex items-center gap-10">
           <div className="flex items-center gap-2 px-0 py-2">
             <Zap className="w-6 h-6 text-primary fill-current" />
@@ -492,9 +543,9 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
       </header>
 
       {/* Navigation Tabs - Simplified Focus */}
-      <div className="px-12 py-4 flex gap-8 bg-transparent">
-        <button className="text-primary font-display text-[10px] font-bold tracking-[0.2em] uppercase border-b-2 border-primary pb-2">
-          Current Session
+      <div className="lg:px-12 px-6 py-4 flex gap-8 bg-transparent">
+        <button className="text-primary font-display text-[10px] font-bold tracking-[0.2em] uppercase border-b-2 border-primary pb-2 cursor-pointer">
+          Current Performance
         </button>
       </div>
 
@@ -573,16 +624,25 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
                     
                     {/* Removal & Capture Controls */}
                     <div className="absolute top-6 right-6 z-40 flex gap-3">
+                      {workflowStatus === 'COMPLETED' && (
+                        <button 
+                          onClick={() => setShowSkeletons(!showSkeletons)}
+                          className={`p-2.5 border rounded-xl backdrop-blur-md transition-all group/skel cursor-pointer ${showSkeletons ? 'bg-primary border-primary' : 'bg-black/40 border-white/10 hover:bg-white/10'}`}
+                          title={showSkeletons ? "Hide AI Skeletons" : "Show AI Skeletons"}
+                        >
+                          <Shield className={`w-5 h-5 ${showSkeletons ? 'text-white' : 'text-white/60'}`} />
+                        </button>
+                      )}
                       <button 
                         onClick={(e) => { e.stopPropagation(); captureScreenshot(); }}
-                        className="p-2.5 bg-black/40 hover:bg-primary border border-white/10 rounded-xl backdrop-blur-md transition-all group/cam"
+                        className="p-2.5 bg-black/40 hover:bg-primary border border-white/10 rounded-xl backdrop-blur-md transition-all group/cam cursor-pointer"
                         title="Capture Screenshot"
                       >
                         <Camera className="w-5 h-5 text-white/60 group-hover/cam:text-white transition-colors" />
                       </button>
                       <button 
                         onClick={(e) => { e.stopPropagation(); handleReset(); }}
-                        className="p-2.5 bg-black/40 hover:bg-red-500 border border-white/10 rounded-xl backdrop-blur-md transition-all group/trash"
+                        className="p-2.5 bg-black/40 hover:bg-red-500 border border-white/10 rounded-xl backdrop-blur-md transition-all group/trash cursor-pointer"
                         title="Remove video"
                       >
                         <Trash2 className="w-5 h-5 text-white/60 group-hover/trash:text-white transition-colors" />
@@ -593,7 +653,7 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
                       <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-30">
                         <button 
                           onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}
-                          className="w-20 h-20 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center backdrop-blur-md hover:scale-110 shadow-2xl transition-transform pointer-events-auto"
+                          className="w-20 h-20 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center backdrop-blur-md hover:scale-110 shadow-2xl transition-transform pointer-events-auto cursor-pointer"
                         >
                           {isPaused ? (
                             <Play className="w-8 h-8 text-primary fill-current" />
@@ -622,13 +682,13 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
                       </div>
                     )}
 
-                    {/* Analysis Trigger - Only show when target is locked and paused */}
-                    {targetLocked && isPaused && !isAnalyzing && (
+                    {/* Analysis Trigger - Only show when target is locked and paused - HIDE IN COMPLETED UNLESS MANUALLY REQUESTED */}
+                    {targetLocked && isPaused && !isAnalyzing && workflowStatus !== 'COMPLETED' && (
                       <motion.button
                         initial={{ y: 20, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
                         onClick={(e) => { e.stopPropagation(); captureImpactFrame(); }}
-                        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 bg-primary text-white px-8 py-4 rounded-2xl font-headline font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-2xl"
+                        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 bg-primary text-white px-8 py-4 rounded-2xl font-headline font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-2xl cursor-pointer"
                       >
                         <Target className="w-4 h-4" />
                         Analyze Impact Frame
@@ -657,7 +717,7 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
                       type="file" 
                       id="video-upload" 
                       className="hidden" 
-                      accept="video/*" 
+                      accept="video/mp4,video/webm,video/ogg,video/quicktime,video/*" 
                       onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])} 
                     />
                     <label 
@@ -717,7 +777,7 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
                   {selectedPerson && (
                     <button 
                       onClick={() => setWorkflowStatus('SELECTING')}
-                      className="px-6 py-2 rounded-xl bg-black/5 text-black/40 border border-black/10 font-display font-bold text-[9px] uppercase tracking-widest hover:bg-black/10 transition-all"
+                      className="px-6 py-2 rounded-xl bg-black/5 text-black/40 border border-black/10 font-display font-bold text-[9px] uppercase tracking-widest hover:bg-black/10 transition-all cursor-pointer"
                     >
                       SWITCH TARGET
                     </button>
@@ -725,47 +785,47 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
                 </div>
               </div>
 
-              {/* Action Bar */}
-              <div className="glass-panel rounded-3xl p-8 border border-black/5 flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl relative overflow-hidden group">
-                <div className="flex items-center gap-6">
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all ${workflowStatus === 'COMPLETED' ? 'bg-primary/20 border-primary/40' : 'bg-black/5 border-black/10'} border`}>
-                    <Zap className={`w-8 h-8 ${workflowStatus === 'COMPLETED' ? 'text-primary' : 'text-on-surface-variant'}`} />
-                  </div>
-                  <div>
-                    <h4 className="text-on-background font-headline text-xl font-bold italic uppercase tracking-tight">AI Vision Pipeline</h4>
-                    <p className="text-on-surface-variant text-[10px] font-display font-bold tracking-widest uppercase mt-1">
-                      {workflowStatus === 'COMPLETED' 
-                        ? `${allEvents.length} Movement Sequences Detected` 
-                        : isUploaded ? 'Target identified • Awaiting analysis' : 'Awaiting manual source ingestion'}
-                    </p>
-                  </div>
-                </div>
-
-                <button 
-                  disabled={!selectedPerson || isAnalyzing}
-                  onClick={() => handlePersonSelect(selectedPerson!)}
-                  className={`px-16 py-5 rounded-2xl font-display font-bold text-[10px] uppercase tracking-[0.3em] transition-all shadow-xl ${
-                    selectedPerson && !isAnalyzing
-                      ? 'bg-primary text-white hover:scale-105 shadow-[0_0_40px_rgba(245,90,60,0.4)] active:scale-95' 
-                      : 'bg-black/5 text-black/20 cursor-not-allowed border border-black/5'
-                  }`}
-                >
-                  {isAnalyzing ? (
-                    <div className="flex items-center gap-3">
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Processing...</span>
+              {/* Action Bar - Only show if not completed yet or show as a subtle "Re-analyze" if needed */}
+              {workflowStatus !== 'COMPLETED' && (
+                <div className="glass-panel rounded-3xl p-8 border border-black/5 flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl relative overflow-hidden group">
+                  <div className="flex items-center gap-6">
+                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all ${workflowStatus === 'COMPLETED' ? 'bg-primary/20 border-primary/40' : 'bg-black/5 border-black/10'} border`}>
+                      <Zap className={`w-8 h-8 ${workflowStatus === 'COMPLETED' ? 'text-primary' : 'text-on-surface-variant'}`} />
                     </div>
-                  ) : (
-                    'Re-Run Deep Analysis'
-                  )}
-                </button>
-              </div>
+                    <div>
+                      <h4 className="text-on-background font-headline text-xl font-bold italic uppercase tracking-tight">AI Vision Pipeline</h4>
+                      <p className="text-on-surface-variant text-[10px] font-display font-bold tracking-widest uppercase mt-1">
+                        {isUploaded ? 'Target identified • Awaiting analysis' : 'Awaiting manual source ingestion'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button 
+                    disabled={!selectedPerson || isAnalyzing}
+                    onClick={() => handlePersonSelect(selectedPerson!)}
+                    className={`lg:px-10 px-6  lg:py-5 py-3 rounded-2xl font-display font-bold text-[10px] uppercase tracking-[0.3em] transition-all shadow-xl cursor-pointer ${
+                      selectedPerson && !isAnalyzing
+                        ? 'bg-primary text-white hover:scale-105 shadow-[0_0_40px_rgba(245,90,60,0.4)] active:scale-95' 
+                        : 'bg-black/5 text-black/20 cursor-not-allowed border border-black/5'
+                    }`}
+                  >
+                    {isAnalyzing ? (
+                      <div className="flex items-center gap-3">
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Processing...</span>
+                      </div>
+                    ) : (
+                      'Initialize Deep Analysis'
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Sidebar Stats Focus */}
+            {/* Personal Stats Focus */}
             <div className="md:col-span-4 space-y-8">
                <div className="glass-panel rounded-3xl p-8 border border-black/5 h-full space-y-8">
-                  <h3 className="font-display text-[10px] text-on-surface-variant uppercase tracking-[0.3em] font-bold border-b border-black/5 pb-4">Coach's Corner</h3>
+                  <h3 className="font-display text-[10px] text-on-surface-variant uppercase tracking-[0.3em] font-bold border-b border-black/5 pb-4">Personal Analysis</h3>
                   
                   <div className="space-y-10">
                     {analysis ? (
@@ -783,7 +843,7 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
                                        setActiveEventIndex(next);
                                        setAnalysis(allEvents[next]);
                                      }}
-                                     className="p-1.5 bg-black/5 rounded-lg disabled:opacity-30"
+                                     className="p-1.5 bg-black/5 rounded-lg disabled:opacity-30 cursor-pointer"
                                    >
                                       <ChevronLeft className="w-3 h-3" />
                                    </button>
@@ -794,7 +854,7 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
                                        setActiveEventIndex(next);
                                        setAnalysis(allEvents[next]);
                                      }}
-                                     className="p-1.5 bg-black/5 rounded-lg disabled:opacity-30"
+                                     className="p-1.5 bg-black/5 rounded-lg disabled:opacity-30 cursor-pointer"
                                    >
                                       <ChevronRight className="w-3 h-3" />
                                    </button>
@@ -808,7 +868,7 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
                                       setActiveEventIndex(i);
                                       setAnalysis(ev);
                                     }}
-                                    className={`px-3 py-1 rounded-md text-[8px] font-bold uppercase transition-all ${
+                                    className={`px-3 py-1 rounded-md text-[8px] font-bold uppercase transition-all cursor-pointer ${
                                       activeEventIndex === i ? 'bg-primary text-white' : 'bg-black/5 text-black/40 hover:bg-black/10'
                                     }`}
                                   >
@@ -911,11 +971,19 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
                           </div>
 
                           <div className="p-8 rounded-3xl bg-primary/5 border border-primary/20 relative group">
-                            <div className="absolute -top-4 left-6 px-4 py-1 bg-primary text-white text-[8px] font-headline font-black uppercase tracking-widest rounded-lg">Coach Remi</div>
-                            <p className="text-[13px] text-on-background/90 leading-relaxed font-display font-medium italic">
+                            <div className="absolute -top-4 left-6 px-4 py-1 bg-primary text-white text-[8px] font-headline font-black uppercase tracking-widest rounded-lg">Performance Tip</div>
+                            <p className="text-sm lg:text-lg text-on-background font-display font-bold italic leading-tight">
                                "{analysis.feedback}"
                             </p>
                           </div>
+
+                          <button 
+                            onClick={onNavigateFeedback}
+                            className="w-full py-5 bg-black text-white rounded-2xl font-display font-bold text-[10px] uppercase tracking-[0.3em] hover:bg-primary transition-all shadow-xl shadow-black/10 flex items-center justify-center gap-3 group cursor-pointer"
+                          >
+                            <span>Open Full Analysis</span>
+                            <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                          </button>
                         </div>
                       </motion.div>
                     ) : (
@@ -925,7 +993,7 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
                         </div>
                         <div className="space-y-2">
                            <p className="text-[10px] text-on-surface-variant font-display font-bold uppercase tracking-[0.2em] italic">Awaiting Impact Event</p>
-                           <p className="text-[9px] text-black/20 max-w-[200px]">Scrub video and click "Analyze Impact Frame" to generate biomechanics report.</p>
+                           <p className="text-[9px] text-black max-w-[200px]">Scrub video and click "Analyze Impact Frame" to generate biomechanics report.</p>
                         </div>
                       </div>
                     )}
@@ -997,7 +1065,7 @@ const VolleyProCore: React.FC<VolleyProCoreProps> = ({ isMobile, allowedModes })
               <div className="p-6 border-t border-black/5 bg-black/[0.01] flex justify-center">
                 <button 
                   onClick={() => setIsUploaded(false)}
-                  className="text-black/30 text-[9px] font-bold uppercase tracking-[0.4em] hover:text-primary transition-colors py-2"
+                  className="text-black/30 text-[9px] font-bold uppercase tracking-[0.4em] hover:text-primary transition-colors py-2 cursor-pointer"
                 >
                   ← Abort Ingestion
                 </button>

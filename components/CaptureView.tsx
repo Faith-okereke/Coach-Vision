@@ -31,7 +31,7 @@ export const CaptureView: React.FC = () => {
                    <span className="text-xs font-bold text-on-background uppercase italic">Active Capture SYS</span>
                 </div>
              </div>
-             <button className="px-8 py-2.5 bg-tertiary text-white font-display font-bold rounded-full hover:scale-95 transition-transform active:scale-100 text-[10px] uppercase tracking-widest shadow-lg">
+             <button className="px-8 py-2.5 bg-tertiary text-white font-display font-bold rounded-full hover:scale-95 transition-transform active:scale-100 text-[10px] uppercase tracking-widest shadow-lg cursor-pointer">
                 Upload Video
              </button>
           </div>
@@ -53,7 +53,7 @@ export const CaptureView: React.FC = () => {
                 <p className="text-sm text-on-surface-variant max-w-md mx-auto leading-relaxed">
                   Provide high-speed MP4 or MOV data. Optimal precision at 120fps+ for biomechanical skeletal tracking mapping.
                 </p>
-                <button className="mt-10 px-10 py-3.5 border border-primary/30 text-primary rounded-full font-bold font-display uppercase tracking-[0.2em] text-[10px] hover:bg-primary hover:text-white transition-all shadow-lg group-hover:shadow-[0_0_30px_rgba(245,90,60,0.2)]">
+                <button className="mt-10 px-10 py-3.5 border border-primary/30 text-primary rounded-full font-bold font-display uppercase tracking-[0.2em] text-[10px] hover:bg-primary hover:text-white transition-all shadow-lg group-hover:shadow-[0_0_30px_rgba(245,90,60,0.2)] cursor-pointer">
                   Sync Local Files
                 </button>
               </div>
@@ -71,7 +71,7 @@ export const CaptureView: React.FC = () => {
                        <p className="text-[10px] text-on-surface-variant uppercase tracking-widest mt-1">42.8 MB / 120.0 MB • BUFFERING...</p>
                     </div>
                  </div>
-                 <button className="text-[10px] font-bold text-red-500/60 uppercase tracking-widest hover:text-red-500 transition-colors">Abort</button>
+                 <button className="text-[10px] font-bold text-red-500/60 uppercase tracking-widest hover:text-red-500 transition-colors cursor-pointer">Abort</button>
                </div>
                
                <div className="w-full h-2 bg-black/5 rounded-full overflow-hidden">
@@ -104,11 +104,11 @@ export const CaptureView: React.FC = () => {
                   <div className="space-y-3">
                      <label className="text-[9px] font-display font-bold text-on-surface-variant uppercase tracking-widest">TRACKING PARADIGM</label>
                      <div className="grid grid-cols-2 gap-2 p-1.5 bg-surface-dim rounded-xl border border-black/5">
-                        <button className="flex items-center justify-center gap-2 py-2.5 bg-primary text-white rounded-lg font-bold text-[10px] uppercase tracking-widest shadow-lg">
+                        <button className="flex items-center justify-center gap-2 py-2.5 bg-primary text-white rounded-lg font-bold text-[10px] uppercase tracking-widest shadow-lg cursor-pointer">
                            <Users className="w-3.5 h-3.5" />
                            SINGLE
                         </button>
-                        <button className="flex items-center justify-center gap-2 py-2.5 text-on-surface-variant hover:text-on-background rounded-lg font-bold text-[10px] uppercase tracking-widest">
+                        <button className="flex items-center justify-center gap-2 py-2.5 text-on-surface-variant hover:text-on-background rounded-lg font-bold text-[10px] uppercase tracking-widest cursor-pointer">
                            TEAM
                         </button>
                      </div>
@@ -136,7 +136,7 @@ export const CaptureView: React.FC = () => {
                   </div>
                </div>
 
-               <button className="w-full h-16 bg-primary text-white rounded-2xl flex items-center justify-center gap-3 font-headline font-bold uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(245,90,60,0.3)] hover:scale-[1.02] active:scale-95 transition-all">
+               <button className="w-full h-16 bg-primary text-white rounded-2xl flex items-center justify-center gap-3 font-headline font-bold uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(245,90,60,0.3)] hover:scale-[1.02] active:scale-95 transition-all cursor-pointer">
                   <Play className="w-5 h-5 fill-current" />
                   INITIATE SYNC
                </button>

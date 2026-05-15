@@ -81,12 +81,22 @@ export const SlingshotConfig: VolleyProConfig = {
 };
 
 export interface VolleyAnalysis {
+  activity: string;
   jointAngles: {
     shoulder: number;
     elbow: number;
     wrist: number;
+    stance?: number;
   };
+  ballData?: {
+    x: number;
+    y: number;
+    speed?: string;
+  };
+  pointOfContact?: string;
   powerScore: number;
   formQuality: 'POOR' | 'FAIR' | 'GOOD' | 'EXCELLENT';
   feedback: string;
+  platformStability?: number;
+  jumpHeight?: number;
 }
